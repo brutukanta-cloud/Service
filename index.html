@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Style Vault (Acode Fixed)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-black text-gray-100 font-sans min-h-screen flex flex-col antialiased">
+
+    <div id="auth-container" class="flex-1 flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-zinc-950 border border-zinc-800 p-8 rounded-3xl shadow-2xl text-center">
+            <h1 class="text-3xl font-extrabold tracking-tight italic bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 bg-clip-text text-transparent mb-2">
+                Cloud Vault
+            </h1>
+            <p class="text-zinc-500 text-xs font-medium tracking-wide uppercase mb-8">Isolated Secure Node</p>
+
+            <form id="login-form" class="space-y-4 text-left">
+                <div class="space-y-1">
+                    <input type="email" id="login-email" placeholder="Phone number, username, or email" required class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:border-zinc-500 transition text-sm text-white placeholder-zinc-500">
+                </div>
+                <div class="space-y-1 relative">
+                    <input type="password" id="login-password" placeholder="Password" required class="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:border-zinc-500 transition text-sm text-white placeholder-zinc-500">
+                    <button type="button" id="toggle-password" class="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition cursor-pointer text-sm">
+                        <i class="fa-solid fa-eye" id="eye-icon"></i>
+                    </button>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 font-semibold py-2.5 rounded-xl text-sm transition mt-4 text-white cursor-pointer shadow-md shadow-blue-500/10">
+                    Log In
+                </button>
+            </form>
+            <div class="mt-8 pt-6 border-t border-zinc-900 text-xs text-zinc-500">
+                New accounts register automatically on first login.
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-container" class="hidden flex-1 flex flex-col">
+        <header class="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-zinc-900 px-4 py-3 flex items-center justify-between max-w-2xl w-full mx-auto">
+            <h2 class="text-2xl font-bold italic tracking-tight bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent select-none">
+                Cloud Vault
+            </h2>
+            <button id="logout-btn" class="text-zinc-400 hover:text-red-400 transition text-lg p-2 cursor-pointer">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+        </header>
+
+        <main class="flex-1 max-w-lg w-full mx-auto px-4 pt-4 pb-24 space-y-6">
+            <div class="flex items-center gap-5 p-4 bg-zinc-950 border border-zinc-900 rounded-2xl">
+                <div class="relative">
+                    <div class="w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600">
+                        <img id="profile-pic" src="1000086823.webp" alt="Pfp" class="w-full h-full object-cover rounded-full bg-black border-2 border-black">
+                    </div>
+                    <div id="change-pfp-trigger" class="absolute bottom-0 right-0 bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] border-2 border-black shadow-lg cursor-pointer">
+                        <i class="fa-solid fa-plus"></i>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 id="user-display-name" class="text-base font-bold truncate text-white">Loading...</h3>
+                    <p id="user-display-email" class="text-xs text-zinc-500 truncate mt-0.5">Loading...</p>
+                    <div class="inline-flex items-center gap-1.5 bg-zinc-900 px-2.5 py-1 rounded-full mt-2 border border-zinc-800">
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                        <span class="text-[10px] text-zinc-400 font-medium">Vault Isolated</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="drop-zone" class="bg-zinc-950 border border-dashed border-zinc-800 hover:border-zinc-700 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center group">
+                <input type="file" id="file-input" accept="image/*" class="hidden" multiple>
+                <i class="fa-solid fa-camera text-2xl text-zinc-500 group-hover:text-blue-400 mb-2 transition"></i>
+                <span class="text-xs font-semibold text-zinc-300">Share a new photo to your vault</span>
+                <span class="text-[10px] text-zinc-600 mt-0.5">Images are safe in encrypted data streams</span>
+            </div>
+
+            <div class="flex items-center justify-between border-b border-zinc-900 pb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                    <i class="fa-solid fa-grid-2x2"></i> Posts (<span id="file-count">0</span>)
+                </span>
+            </div>
+
+            <div id="empty-state" class="text-center py-16 text-zinc-600 text-sm flex flex-col items-center justify-center">
+                <i class="fa-solid fa-icons text-4xl mb-3 text-zinc-800"></i>
+                <p class="font-medium text-zinc-500">No Posts Yet</p>
+                <p class="text-xs text-zinc-600 mt-0.5">Photos you upload will stream here live.</p>
+            </div>
+
+            <div id="gallery-grid" class="space-y-6"></div>
+        </main>
+    </div>
+
+    <script>
+        // Firebase Config Setup
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNPhX9OPH3wD1irj-B46HOI6D4RqGwD3E",
+            authDomain: "myvault-54ad2.firebaseapp.com",
+            projectId: "myvault-54ad2",
+            storageBucket: "myvault-54ad2.firebasestorage.app",
+            messagingSenderId: "376093756835",
+            appId: "1:376093756835:web:d2d546994509ebe499de16",
+            databaseURL: "https://myvault-54ad2-default-rtdb.firebaseio.com"
+        };
+
+        // Initialize Firebase Compat Mode
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const DOM = {
+            authContainer: document.getElementById('auth-container'),
+            dashboardContainer: document.getElementById('dashboard-container'),
+            loginForm: document.getElementById('login-form'),
+            emailInput: document.getElementById('login-email'),
+            passwordInput: document.getElementById('login-password'),
+            togglePasswordBtn: document.getElementById('toggle-password'),
+            eyeIcon: document.getElementById('eye-icon'),
+            logoutBtn: document.getElementById('logout-btn'),
+            userEmail: document.getElementById('user-display-email'),
+            userName: document.getElementById('user-display-name'),
+            dropZone: document.getElementById('drop-zone'),
+            fileInput: document.getElementById('file-input'),
+            galleryGrid: document.getElementById('gallery-grid'),
+            emptyState: document.getElementById('empty-state'),
+            fileCount: document.getElementById('file-count'),
+            profilePic: document.getElementById('profile-pic'),
+            changePfpBtn: document.getElementById('change-pfp-trigger')
+        };
+
+        // Secure Fallback Check for Acode sandboxed localStorage
+        function getStorageItem(key) {
+            try { return localStorage.getItem(key); } catch(e) { return sessionStorage.getItem(key); }
+        }
+        function setStorageItem(key, val) {
+            try { localStorage.setItem(key, val); } catch(e) { sessionStorage.setItem(key, val); }
+        }
+        function clearStorage() {
+            try { localStorage.clear(); } catch(e) {}
+            try { sessionStorage.clear(); } catch(e) {}
+        }
+
+        function checkActiveSession() {
+            const savedEmail = getStorageItem('active_vault_user');
+            if (savedEmail) {
+                connectUserEnvironment(savedEmail);
+            } else {
+                renderAuthScreen();
+            }
+        }
+
+        DOM.togglePasswordBtn.onclick = function() {
+            if (DOM.passwordInput.type === 'password') {
+                DOM.passwordInput.type = 'text';
+                DOM.eyeIcon.className = 'fa-solid fa-eye-slash';
+            } else {
+                DOM.passwordInput.type = 'password';
+                DOM.eyeIcon.className = 'fa-solid fa-eye';
+            }
+        };
+
+        DOM.loginForm.onsubmit = function(e) {
+            e.preventDefault();
+            const email = DOM.emailInput.value.trim().toLowerCase();
+            const password = DOM.passwordInput.value;
+            const userNode = email.replace(/[^a-zA-Z0-9]/g, "_");
+
+            const passwordRef = db.ref(`vault_users/${userNode}/meta/password`);
+            
+            passwordRef.once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    db.ref(`vault_users/${userNode}/meta`).set({
+                        email: email,
+                        password: password,
+                        createdAt: new Date().toLocaleDateString()
+                    }).then(() => {
+                        alert("Welcome to Cloud Vault! Account registered. 🔒");
+                        setStorageItem('active_vault_user', email);
+                        connectUserEnvironment(email);
+                    });
+                } else if (snapshot.val() !== password) {
+                    alert("SECURITY ERROR: Mismatched credentials.");
+                } else {
+                    setStorageItem('active_vault_user', email);
+                    connectUserEnvironment(email);
+                }
+            }).catch(() => {
+                alert("Database blocked. Check Firebase Rules.");
+            });
+        };
+
+        DOM.logoutBtn.onclick = function(e) {
+            e.preventDefault();
+            clearStorage();
+            DOM.emailInput.value = '';
+            DOM.passwordInput.value = '';
+            DOM.passwordInput.type = 'password';
+            DOM.eyeIcon.className = 'fa-solid fa-eye';
+            renderAuthScreen();
+        };
+
+        function connectUserEnvironment(email) {
+            DOM.authContainer.classList.add('hidden');
+            DOM.dashboardContainer.classList.remove('hidden');
+            
+            const handleName = email.split('@')[0];
+            DOM.userEmail.textContent = `@${handleName}`;
+            DOM.userName.textContent = handleName.toUpperCase();
+
+            const userNode = email.replace(/[^a-zA-Z0-9]/g, "_");
+
+            db.ref(`vault_users/${userNode}/profile_image`).on('value', (snapshot) => {
+                DOM.profilePic.src = snapshot.exists() ? snapshot.val() : "1000086823.webp";
+            });
+
+            db.ref(`vault_users/${userNode}/gallery`).on('value', (snapshot) => {
+                DOM.galleryGrid.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    DOM.fileCount.textContent = "0";
+                    DOM.emptyState.classList.remove('hidden');
+                    return;
+                }
+
+                DOM.emptyState.classList.add('hidden');
+                const filesDataMap = snapshot.val();
+                const keysArray = Object.keys(filesDataMap).reverse();
+                DOM.fileCount.textContent = keysArray.length;
+
+                keysArray.forEach((id) => {
+                    const fileObj = filesDataMap[id];
+                    const card = document.createElement('div');
+                    card.className = "bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden flex flex-col shadow-lg";
+                    
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-900/50 bg-zinc-950">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-full bg-zinc-800 overflow-hidden border border-zinc-700">
+                                    <img src="${DOM.profilePic.src}" class="w-full h-full object-cover node-avatar-feed">
+                                </div>
+                                <span class="text-xs font-bold tracking-wide text-zinc-200">${handleName}</span>
+                            </div>
+                            <span class="text-[10px] text-zinc-500 font-medium">${fileObj.addedOn}</span>
+                        </div>
+                        <div class="w-full bg-black flex items-center justify-center overflow-hidden max-h-[450px]">
+                            <img src="${fileObj.dataStream}" class="w-full h-full object-contain">
+                        </div>
+                        <div class="px-4 py-3 flex items-center justify-between bg-zinc-950/60 border-t border-zinc-900/30">
+                            <div class="flex items-center gap-4">
+                                <button title="Download to device" class="text-zinc-200 hover:text-blue-400 text-lg transition cursor-pointer" id="download-btn-${id}">
+                                    <i class="fa-solid fa-download"></i>
+                                </button>
+                            </div>
+                            <button title="Delete post" class="text-zinc-600 hover:text-red-500 text-base transition cursor-pointer" id="delete-btn-${id}">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    `;
+                    DOM.galleryGrid.appendChild(card);
+
+                    const cardAvatar = card.querySelector('.node-avatar-feed');
+                    db.ref(`vault_users/${userNode}/profile_image`).on('value', (snap) => {
+                        if (snap.exists()) cardAvatar.src = snap.val();
+                    });
+
+                    document.getElementById(`download-btn-${id}`).onclick = function() {
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = fileObj.dataStream;
+                        downloadLink.download = `Vault_Image_${id}.png`;
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+                    };
+
+                    document.getElementById(`delete-btn-${id}`).onclick = function() {
+                        if (confirm("Delete this post permanently from your cloud database?")) {
+                            db.ref(`vault_users/${userNode}/gallery/${id}`).remove();
+                        }
+                    };
+                });
+            });
+        }
+
+        function renderAuthScreen() {
+            DOM.dashboardContainer.classList.add('hidden');
+            DOM.authContainer.classList.remove('hidden');
+            DOM.profilePic.src = "1000086823.webp";
+            DOM.galleryGrid.innerHTML = '';
+            DOM.fileCount.textContent = "0";
+        }
+
+        DOM.dropZone.onclick = () => DOM.fileInput.click();
+        DOM.fileInput.onchange = function(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            const activeUser = getStorageItem('active_vault_user');
+            if (!activeUser) return;
+            const userNode = activeUser.replace(/[^a-zA-Z0-9]/g, "_");
+
+            Array.from(files).forEach((file) => {
+                if (!file.type.startsWith('image/')) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    db.ref(`vault_users/${userNode}/gallery`).push({
+                        dataStream: event.target.result,
+                        addedOn: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+        };
+
+        const uploadAvatarInput = document.createElement('input');
+        uploadAvatarInput.type = 'file';
+        uploadAvatarInput.accept = 'image/*';
+        DOM.changePfpBtn.onclick = () => uploadAvatarInput.click();
+
+        uploadAvatarInput.onchange = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const activeUser = getStorageItem('active_vault_user');
+            if (!activeUser) return;
+            const userNode = activeUser.replace(/[^a-zA-Z0-9]/g, "_");
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                db.ref(`vault_users/${userNode}/profile_image`).set(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        };
+
+        checkActiveSession();
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
